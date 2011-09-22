@@ -163,6 +163,20 @@ end
 Multiple attribute names may be specified to define a compound key. Foreign key
 column attributes (`user_id`) are often included in natural keys.
 
+You can also use the :only_find option to disable creation or updating of unfound
+objects entirely:
+
+```ruby
+class EmailAddress < ActiveRecord::Base
+  belongs_to :user
+  replicate_natural_key :user_id, :email, :only_find => true
+end
+```
+
+In this example, loading a dump of users with email addresses will result in all
+users loaded, but they will have only the email addresses that are already in the
+target system.
+
 ### Omission of attributes and associations
 
 You might want to exclude some attributes or associations from being dumped. For

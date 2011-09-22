@@ -298,6 +298,37 @@ class ActiveRecordTest < Test::Unit::TestCase
     end
   end
 
+  def test_only_find_natural_key
+    objects = []
+    @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
+
+    assert_equal(3, Profile.count)
+    assert_equal(3, User.count)
+
+    %w[rtomayko kneath tmm1].each do |login|
+      user = User.find_by_login(login)
+      @dumper.dump user
+    end
+    assert_equal 6, objects.size
+
+    User.find_by_login("kneath").profile.destroy
+    User.delete_all
+    assert_equal(0, User.count)
+    assert_equal(2, Profile.count)
+
+    # We only want to reattach profiles, not recreate them
+    Profile.replicate_natural_key :user_id, :only_find => true
+    
+     # load everything back up
+    objects.each { |type, id, attrs, obj| @loader.feed type, id, attrs }
+
+    assert_equal(3, User.count)
+    assert_equal(2, Profile.count)
+    assert_nil     User.find_by_login("kneath").profile
+    assert_not_nil User.find_by_login("rtomayko").profile
+    assert_not_nil User.find_by_login("tmm1").profile
+  end
+
   def test_loading_with_existing_records
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
