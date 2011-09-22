@@ -125,10 +125,23 @@ module Replicate
       # Compound key used during load to locate existing objects for update.
       # When no natural key is defined, objects are created new.
       #
+      # Use :only_find => true as an option to only find existing objects - if
+      # none are found, they will not be created.
+      #
       # attribute_names - Macro style setter.
       def replicate_natural_key(*attribute_names)
+        options = attribute_names.last.is_a?(Hash) ? attribute_names.pop : {}
         self.replicate_natural_key = attribute_names if attribute_names.any?
+        self.only_find_natural_key = options[:only_find] if options.has_key?(:only_find)
         @replicate_natural_key || superclass.replicate_natural_key
+      end
+
+      def only_find_natural_key
+        @only_find_natural_key
+      end
+
+      def only_find_natural_key=(only_find)
+        @only_find_natural_key = only_find
       end
 
       # Set the compound key used to locate existing objects for update when
@@ -154,6 +167,8 @@ module Replicate
       # Load an individual record into the database. If the models defines a
       # replicate_natural_key then an existing record will be updated if found
       # instead of a new record being created.
+      # If the :only_find option is set to true on replicate_natural_key, will
+      # not create a new record if it isn't found.
       #
       # type  - Model class name as a String.
       # id    - Primary key id of the record on the dump system. This must be
@@ -162,8 +177,9 @@ module Replicate
       #
       # Returns the ActiveRecord object instance for the new record.
       def load_replicant(type, id, attributes)
-        instance = replicate_find_existing_record(attributes) || new
-        create_or_update_replicant instance, attributes
+        instance = replicate_find_existing_record(attributes)
+        return if instance.nil? and only_find_natural_key
+        create_or_update_replicant instance || new, attributes
       end
 
       # Locate an existing record using the replicate_natural_key attribute
@@ -286,6 +302,7 @@ module Replicate
     ::ActiveRecord::Base.send :extend,  ClassMethods
     ::ActiveRecord::Base.replicate_associations = []
     ::ActiveRecord::Base.replicate_natural_key  = []
+    ::ActiveRecord::Base.only_find_natural_key  = false
     ::ActiveRecord::Base.replicate_id           = false
   end
 end
