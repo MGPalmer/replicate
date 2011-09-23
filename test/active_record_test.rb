@@ -298,7 +298,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     end
   end
 
-  def test_only_find_natural_key
+  def test_only_find_natural_key_on_belongs_to
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
@@ -327,6 +327,31 @@ class ActiveRecordTest < Test::Unit::TestCase
     assert_nil     User.find_by_login("kneath").profile
     assert_not_nil User.find_by_login("rtomayko").profile
     assert_not_nil User.find_by_login("tmm1").profile
+  end
+
+  def test_only_find_natural_key_on_has_many
+    objects = []
+    @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
+
+    User.replicate_associations :emails
+    Email.replicate_natural_key = []
+    Email.replicate_natural_key :email, :only_find => true
+
+    rtomayko = User.find_by_login('rtomayko')
+    @dumper.dump rtomayko
+    assert_equal 4, objects.size
+
+    emails = rtomayko.emails
+    Email.destroy_all
+
+    objects.each { |type, id, attrs, obj| @loader.feed type, id, attrs }
+    assert_equal(0, rtomayko.emails.count)
+
+    email = Email.create!(:email => emails.first.email)
+    assert_equal(0, rtomayko.emails.count)
+    objects.each { |type, id, attrs, obj| @loader.feed type, id, attrs }
+    assert_equal(1, rtomayko.emails.count)
+    assert_equal(email.email, rtomayko.reload.emails.first.email)
   end
 
   def test_loading_with_existing_records
